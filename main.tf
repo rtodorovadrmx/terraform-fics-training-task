@@ -88,6 +88,7 @@ resource "aws_sns_topic_subscription" "tf-gate-monitor-subscription" {
   endpoint  = aws_sqs_queue.tf-gate-monitor-queue.arn
   protocol  = "sqs"
   topic_arn = aws_sns_topic.tf-fics-sns-topic-fifo.arn
+  raw_message_delivery = true
 }
 
 # Gate Monitor DLQ
@@ -147,6 +148,7 @@ resource "aws_sns_topic_subscription" "tf-control-system-subscription" {
   endpoint  = aws_sqs_queue.tf-control-system-queue.arn
   protocol  = "sqs"
   topic_arn = aws_sns_topic.tf-fics-sns-topic-fifo.arn
+  raw_message_delivery = true
 }
 
 # Control System DLQ
@@ -185,9 +187,9 @@ resource "aws_lambda_function" "tf-control-system-lambda" {
   function_name = "tf-control-system-lambda"
   role          = aws_iam_role.tf-iam-lambda.arn
   handler       = "control.system.ControlSystemLambdaHandler::handleRequest"
-  s3_bucket = "training-task-bucket"
-  s3_key = "3cd6c96bd8f2487f415aec4e73914361"
-  runtime  = "java17"
+  s3_bucket     = "training-task-bucket"
+  s3_key        = "3cd6c96bd8f2487f415aec4e73914361"
+  runtime       = "java17"
 
   depends_on = [
     aws_iam_role_policy_attachment.tf-lambda-logs-cs,
@@ -254,14 +256,14 @@ resource "aws_iam_policy" "tf-lambda-sqs-queue-execution-cs" {
 }
 
 resource "aws_iam_role_policy_attachment" "tf-lambda-sqs-queue-execution-role-cs" {
-  role      = aws_iam_role.tf-iam-lambda.name
+  role       = aws_iam_role.tf-iam-lambda.name
   policy_arn = aws_iam_policy.tf-lambda-sqs-queue-execution-cs.arn
 }
 
 resource "aws_lambda_event_source_mapping" "tf-control-system-sqs-to-lambda" {
   event_source_arn = aws_sqs_queue.tf-control-system-queue.arn
   function_name    = aws_lambda_function.tf-control-system-lambda.arn
-  batch_size = 10
+  batch_size       = 10
 }
 
 ######### Control System Lambda end #############
