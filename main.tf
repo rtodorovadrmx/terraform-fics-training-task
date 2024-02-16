@@ -185,7 +185,8 @@ resource "aws_lambda_function" "tf-control-system-lambda" {
   function_name = "tf-control-system-lambda"
   role          = aws_iam_role.tf-iam-lambda.arn
   handler       = "control.system.ControlSystemLambdaHandler::handleRequest"
-  filename = "control-system-lambda-code.zip"
+  s3_bucket = "training-task-bucket"
+  s3_key = "3cd6c96bd8f2487f415aec4e73914361"
   runtime  = "java17"
 
   depends_on = [
