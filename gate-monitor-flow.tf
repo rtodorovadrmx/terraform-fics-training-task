@@ -41,7 +41,7 @@ module "tf-gate-monitor-lambda" {
   create_package = false
   s3_existing_package = {
     bucket = "training-task-bucket"
-    key    = "53712e58d0c56dd8b320e37d87c4040d"
+    key    = "efa0b2a7cc148d2b15ea18b2d03f317e"
   }
 
   attach_policy = true
@@ -244,7 +244,7 @@ resource "aws_cloudwatch_log_group" "tf-gate-monitor-ebpipe-cloudwatch-log-group
 }
 
 resource "aws_pipes_pipe" "tf-gate-monitor-ebpipe" {
-  name     = "${var.tf-gate-monitor-ebpipe}"
+  name     = var.tf-gate-monitor-ebpipe
   role_arn = aws_iam_role.tf-gate-monitor-ebpipe-access-role.arn
   source   = aws_sqs_queue.tf-gate-monitor-queue.arn
   target   = module.tf-validate-message-workflow-standard.state_machine_arn
