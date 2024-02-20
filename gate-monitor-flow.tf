@@ -37,6 +37,7 @@ module "tf-gate-monitor-lambda" {
   function_name = "tf-gate-monitor-lambda"
   runtime       = "java17"
   handler       = "gate.monitor.GateMonitorLambdaHandler"
+  timeout       = 180
 
   create_package = false
   s3_existing_package = {
@@ -175,100 +176,136 @@ EOF
 ###### Step Function End ############
 
 ###### EventBridge Pipe Start ############
-data "aws_iam_policy_document" "tf-gate-monitor-ebpipe-assume-policy-doc" {
-
-  statement {
-    effect = "Allow"
-
-    principals {
-      identifiers = ["pipes.amazonaws.com"]
-      type        = "Service"
-    }
-
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-data "aws_iam_policy_document" "tf-gate-monitor-ebpipe-access-policy-doc" {
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "sqs:ReceiveMessage",
-      "sqs:DeleteMessage",
-      "sqs:GetQueueAttributes"
-    ]
-
-    resources = [aws_sqs_queue.tf-gate-monitor-queue.arn]
-  }
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "states:StartExecution"
-    ]
-
-    resources = [module.tf-validate-message-workflow-standard.state_machine_arn]
-  }
-  statement {
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:PutLogEventsBatch",
-    ]
-
-    resources = ["arn:aws:logs:*"]
-
-  }
-}
-
-resource "aws_iam_policy" "tf-gate-monitor-ebpipe-access-policy" {
-  policy = data.aws_iam_policy_document.tf-gate-monitor-ebpipe-access-policy-doc.json
-}
-
-resource "aws_iam_role" "tf-gate-monitor-ebpipe-access-role" {
-  name                = "tf-gate-monitor-ebpipe-access-role"
-  assume_role_policy  = data.aws_iam_policy_document.tf-gate-monitor-ebpipe-assume-policy-doc.json
-  managed_policy_arns = [aws_iam_policy.tf-gate-monitor-ebpipe-access-policy.arn]
-
-}
-
+#data "aws_iam_policy_document" "tf-gate-monitor-ebpipe-assume-policy-doc" {
+#
+#  statement {
+#    effect = "Allow"
+#
+#    principals {
+#      identifiers = ["pipes.amazonaws.com"]
+#      type        = "Service"
+#    }
+#
+#    actions = ["sts:AssumeRole"]
+#  }
+#}
+#
+#data "aws_iam_policy_document" "tf-gate-monitor-ebpipe-access-policy-doc" {
+#  statement {
+#    effect = "Allow"
+#
+#    actions = [
+#      "sqs:ReceiveMessage",
+#      "sqs:DeleteMessage",
+#      "sqs:GetQueueAttributes"
+#    ]
+#
+#    resources = [aws_sqs_queue.tf-gate-monitor-queue.arn]
+#  }
+#  statement {
+#    effect = "Allow"
+#
+#    actions = [
+#      "states:StartExecution"
+#    ]
+#
+#    resources = [module.tf-validate-message-workflow-standard.state_machine_arn]
+#  }
+#  statement {
+#    effect = "Allow"
+#    actions = [
+#      "logs:CreateLogStream",
+#      "logs:PutLogEvents",
+#      "logs:PutLogEventsBatch",
+#    ]
+#
+#    resources = ["arn:aws:logs:*"]
+#
+#  }
+#}
+#
+#resource "aws_iam_policy" "tf-gate-monitor-ebpipe-access-policy" {
+#  policy = data.aws_iam_policy_document.tf-gate-monitor-ebpipe-access-policy-doc.json
+#}
+#
+#resource "aws_iam_role" "tf-gate-monitor-ebpipe-access-role" {
+#  name                = "tf-gate-monitor-ebpipe-access-role"
+#  assume_role_policy  = data.aws_iam_policy_document.tf-gate-monitor-ebpipe-assume-policy-doc.json
+#  managed_policy_arns = [aws_iam_policy.tf-gate-monitor-ebpipe-access-policy.arn]
+#
+#}
+#
 variable "tf-gate-monitor-ebpipe" {
   default = "tf-gate-monitor-ebpipe"
 }
-
+#
 resource "aws_cloudwatch_log_group" "tf-gate-monitor-ebpipe-cloudwatch-log-group" {
   name              = "/aws/vendedlogs/pipes/${var.tf-gate-monitor-ebpipe}"
   retention_in_days = 14
 }
+#
+#resource "aws_pipes_pipe" "tf-gate-monitor-ebpipe" {
+#  name     = var.tf-gate-monitor-ebpipe
+#  role_arn = aws_iam_role.tf-gate-monitor-ebpipe-access-role.arn
+#  source   = aws_sqs_queue.tf-gate-monitor-queue.arn
+#  target   = module.tf-validate-message-workflow-standard.state_machine_arn
+#
+#  #
+#  #  source_parameters {
+#  #    sqs_queue_parameters {
+#  #      batch_size                         = 10
+#  #      maximum_batching_window_in_seconds = 100
+#  #    }
+#  #  }
+#  #
+#  target_parameters {
+#    input_template = <<EOF
+#      {
+#        "gate": "<$.body.gate>",
+#        "flight": "<$.body.flight>",
+#        "messageId": "<$.messageId>"
+#      }
+#    EOF
+#    step_function_state_machine_parameters {
+#      invocation_type = "FIRE_AND_FORGET"
+#    }
+#  }
+#}
 
-resource "aws_pipes_pipe" "tf-gate-monitor-ebpipe" {
-  name     = var.tf-gate-monitor-ebpipe
-  role_arn = aws_iam_role.tf-gate-monitor-ebpipe-access-role.arn
-  source   = aws_sqs_queue.tf-gate-monitor-queue.arn
-  target   = module.tf-validate-message-workflow-standard.state_machine_arn
+###### EventBridge Pipe End ############
+module "tf-gate-monitor-ebpipe" {
+  source = "terraform-aws-modules/eventbridge/aws"
 
-  #
-  #  source_parameters {
-  #    sqs_queue_parameters {
-  #      batch_size                         = 10
-  #      maximum_batching_window_in_seconds = 100
-  #    }
-  #  }
-  #
-  target_parameters {
-    input_template = <<EOF
-      {
-        "gate": "<$.body.gate>",
-        "flight": "<$.body.flight>",
-        "messageId": "<$.messageId>"
+  create_bus               = false
+  cloudwatch_target_arns   = [aws_cloudwatch_log_group.tf-gate-monitor-ebpipe-cloudwatch-log-group.arn]
+  attach_cloudwatch_policy = true
+
+  pipes = {
+    tf-gate-monitor-ebpipe = {
+      name      = "tf-gate-monitor-ebpipe"
+      role_name = "tf-gate-monitor-ebpipe-role"
+      source    = aws_sqs_queue.tf-gate-monitor-queue.arn
+      target    = module.tf-validate-message-workflow-standard.state_machine_arn
+
+      source_parameters = {
+        sqs_queue_parameters = {
+          batch_size = 10
+        }
       }
-    EOF
-    step_function_state_machine_parameters {
-      invocation_type = "FIRE_AND_FORGET"
+
+      target_parameters = {
+        step_function_state_machine_parameters = {
+          invocation_type = "FIRE_AND_FORGET"
+        }
+        input_template = <<EOF
+{
+  "gate": "<$.body.gate>",
+  "flight": "<$.body.flight>",
+  "messageId": "<$.messageId>"
+}
+EOF
+      }
     }
   }
 }
 
-###### EventBridge Pipe End ############
